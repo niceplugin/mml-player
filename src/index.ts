@@ -1,5 +1,6 @@
-import type { AudioBufferStore, AudioFilePath } from './types'
+import type { AudioBufferStore, AudioFilePath, PlayNoteOptions } from './types'
 import { loadSamples } from './load-samples'
+import { playSample } from './play-sample'
 
 export class MML {
   public ctx: AudioContext
@@ -22,7 +23,12 @@ export class MML {
     return await loadSamples.call(this, source)
   }
 
-  play(note: string, duration: number = 1000, volume: number = 1): void {
-    // TODO: 로드된 버퍼를 참조해 재생 로직을 구현한다.
+  /**
+   * 로드된 샘플을 재생하거나 필요 시 사인파로 재생한다.
+   *
+   * @param {PlayNoteOptions} options 재생 옵션
+   */
+  playSample(options: PlayNoteOptions): void {
+    playSample.call(this, options)
   }
 }

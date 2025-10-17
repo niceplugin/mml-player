@@ -7,3 +7,10 @@ export type AudioFilePath = {
   note: string
   path: string
 }
+
+export type PlayNoteOptions = {
+  name: InstrumentName
+  note: string
+  duration?: number
+  volume?: number
+}
