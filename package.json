@@ -1,0 +1,29 @@
+{
+  "name": "mml-note",
+  "version": "0.0.1",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true });\"",
+    "prepare": "npm run build",
+    "test": "echo \"No tests defined\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
