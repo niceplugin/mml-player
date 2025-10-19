@@ -1,4 +1,4 @@
-import { InstrumentName, PlayNoteOptions } from '../types'
+import { InstrumentName, PlayNoteOptions, PlayNoteTrack } from '../types'
 
 const MML_PREFIX = 'MML@'
 const MML_SUFFIX = ';'
@@ -23,7 +23,7 @@ const DEFAULT_LENGTH = 4
  * @returns 파싱된 재생 옵션 목록
  * @throws {Error} 포맷이 올바르지 않은 경우
  */
-export function mmlToNote(mml: string, name: InstrumentName): PlayNoteOptions[] {
+export function mmlToNote(mml: string, name: InstrumentName): PlayNoteTrack[] {
   if (typeof mml !== 'string') {
     throw new TypeError('contents는 문자열이어야 합니다.')
   }
@@ -46,11 +46,13 @@ export function mmlToNote(mml: string, name: InstrumentName): PlayNoteOptions[] 
 
   const body = upperCased.slice(MML_PREFIX.length, -MML_SUFFIX.length)
   const staffs = body.split(',').map((line) => line.trim()).filter((line) => line.length > 0)
-  const parsedNotes: PlayNoteOptions[] = []
+  const parsedNotes: PlayNoteTrack[] = []
 
   staffs.forEach((line) => {
     const notesForLine = parseLine(line, name)
-    parsedNotes.push(...notesForLine)
+    if (notesForLine.length > 0) {
+      parsedNotes.push(notesForLine)
+    }
   })
 
   return parsedNotes
@@ -63,8 +65,8 @@ export function mmlToNote(mml: string, name: InstrumentName): PlayNoteOptions[] 
  * @param name 파싱 결과에 적용할 악기 이름
  * @returns 해당 라인의 음표 옵션 배열
  */
-function parseLine(line: string, name: InstrumentName): PlayNoteOptions[] {
-  const results: PlayNoteOptions[] = []
+function parseLine(line: string, name: InstrumentName): PlayNoteTrack {
+  const results: PlayNoteTrack = []
   let tempo = DEFAULT_TEMPO
   let octave = DEFAULT_OCTAVE
   let volume = DEFAULT_VOLUME
