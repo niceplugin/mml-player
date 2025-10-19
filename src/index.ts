@@ -10,6 +10,7 @@ import { loadSamples } from './load-samples'
 import { playSample } from './play-sample'
 import { mmlToNote } from './composables/mms-to-note'
 import { stop } from './stop'
+import { stopped } from './stopped'
 
 export class MML {
   public ctx: AudioContext
@@ -58,5 +59,9 @@ export class MML {
 
   stop() {
     stop.call(this)
+  }
+
+  get stopped() {
+    return stopped.call(this)
   }
 }
