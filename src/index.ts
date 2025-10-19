@@ -70,9 +70,9 @@ export class MML {
    * @param {InstrumentName} [name] 사용할 악기 이름
    */
   play(mml: string, name: InstrumentName = '_'): void {
-    const notes = mmlToNote(mml, name)
+    const tracks = mmlToNote(mml, name)
 
-    playMml.call(this, notes)
+    playMml.call(this, tracks)
   }
 
   /**
