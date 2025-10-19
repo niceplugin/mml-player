@@ -1,6 +1,7 @@
-import type { AudioBufferStore, AudioFilePath, PlayNoteOptions } from './types'
+import { AudioBufferStore, AudioFilePath, InstrumentName, PlayNoteOptions } from './types'
 import { loadSamples } from './load-samples'
 import { playSample } from './play-sample'
+import { mmlToNote } from './composables/mms-to-note'
 
 export class MML {
   public ctx: AudioContext
@@ -30,5 +31,9 @@ export class MML {
    */
   playSample(options: PlayNoteOptions): void {
     playSample.call(this, options)
+  }
+
+  play(mml: string, name: InstrumentName = '_') {
+    const notes = mmlToNote(mml, name)
   }
 }
