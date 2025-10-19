@@ -1,4 +1,4 @@
-import { AudioBufferStore, AudioFilePath, InstrumentName, PlayNoteOptions } from './types'
+import { AudioBufferStore, AudioFilePath, InstrumentName, PlayNoteOptions, PlaybackTiming } from './types'
 import { loadSamples } from './load-samples'
 import { playSample } from './play-sample'
 import { mmlToNote } from './composables/mms-to-note'
@@ -6,9 +6,13 @@ import { mmlToNote } from './composables/mms-to-note'
 export class MML {
   public ctx: AudioContext
   public readonly buffers: AudioBufferStore = {}
+  public readonly masterGain: GainNode
 
   constructor() {
     this.ctx = new AudioContext()
+    this.masterGain = this.ctx.createGain()
+    this.masterGain.gain.value = 1
+    this.masterGain.connect(this.ctx.destination)
   }
 
   /**
@@ -28,9 +32,15 @@ export class MML {
    * 로드된 샘플을 재생하거나 필요 시 사인파로 재생한다.
    *
    * @param {PlayNoteOptions} options 재생 옵션
+   * @param {PlaybackTiming} [timing] 캡처한 컨텍스트 시간(contextTime)과 재생 지연(delay), 생략 시 현재 컨텍스트 시간과 지연 0 사용
    */
-  playSample(options: PlayNoteOptions): void {
-    playSample.call(this, options)
+  playSample(options: PlayNoteOptions, timing?: PlaybackTiming): void {
+    const resolvedTiming: PlaybackTiming = timing ?? {
+      contextTime: this.ctx.currentTime,
+      delay: 0,
+    }
+
+    playSample.call(this, options, resolvedTiming)
   }
 
   play(mml: string, name: InstrumentName = '_') {

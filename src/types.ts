@@ -14,3 +14,8 @@ export type PlayNoteOptions = {
   duration?: number
   volume?: number
 }
+
+export type PlaybackTiming = {
+  contextTime: number
+  delay: number
+}

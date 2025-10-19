@@ -1,5 +1,5 @@
 import type { MML } from './index.ts'
-import type { PlayNoteOptions } from './types.ts'
+import type { PlayNoteOptions, PlaybackTiming } from './types.ts'
 import { noteToFrequency } from './composables/note-to-frequency'
 
 const DEFAULT_FADE_DURATION = 0.01
@@ -7,13 +7,14 @@ const DEFAULT_FADE_DURATION = 0.01
 /**
  * 로드된 샘플을 재생하거나 사인파로 폴백해 재생한다.
  */
-export function playSample(this: MML, options: PlayNoteOptions): void {
+export function playSample(this: MML, options: PlayNoteOptions, timing: PlaybackTiming): void {
   const {
     name,
     note,
     duration = 1000,
     volume = 0.5,
   } = options
+  const { contextTime, delay } = timing
 
   if (!Number.isFinite(duration)) {
     throw new TypeError('duration은 유한한 숫자여야 합니다.')
@@ -31,6 +32,18 @@ export function playSample(this: MML, options: PlayNoteOptions): void {
     throw new RangeError('volume은 0 이상 1 이하의 값만 허용됩니다.')
   }
 
+  if (!Number.isFinite(contextTime) || !Number.isFinite(delay)) {
+    throw new TypeError('재생 타이밍 정보(contextTime, delay)는 유한한 숫자여야 합니다.')
+  }
+
+  if (contextTime < 0) {
+    throw new RangeError('contextTime은 0 이상이어야 합니다.')
+  }
+
+  if (delay < 0) {
+    throw new RangeError('delay는 0 이상이어야 합니다.')
+  }
+
   const instrumentKey = name.trim().toLowerCase()
   const targetFrequency = noteToFrequency(note)
   const instrumentBuffers = this.buffers[instrumentKey]
@@ -45,14 +58,14 @@ export function playSample(this: MML, options: PlayNoteOptions): void {
 
   if (!instrumentBuffers || Object.keys(instrumentBuffers).length === 0) {
     // 등록된 샘플이 없으면 사인파 폴백을 사용한다.
-    playSineWave(this, targetFrequency, duration, volume)
+    playSineWave(this, targetFrequency, duration, volume, timing)
     return
   }
 
   const resolvedBuffer = resolveBuffer(instrumentBuffers, targetFrequency)
 
   if (!resolvedBuffer) {
-    playSineWave(this, targetFrequency, duration, volume)
+    playSineWave(this, targetFrequency, duration, volume, timing)
     return
   }
 
@@ -63,9 +76,13 @@ export function playSample(this: MML, options: PlayNoteOptions): void {
   const source = this.ctx.createBufferSource()
   const gainNode = this.ctx.createGain()
   const gainValue = convertVolumeToGain(volume)
-  const startTime = this.ctx.currentTime
+  const startTime = contextTime + delay
   const durationSeconds = duration / 1000
   const stopTime = startTime + durationSeconds
+
+  if (!Number.isFinite(startTime) || startTime < 0) {
+    throw new RangeError('재생 시작 시간은 0 이상이어야 합니다.')
+  }
 
   source.buffer = buffer
   source.loop = false
@@ -73,7 +90,7 @@ export function playSample(this: MML, options: PlayNoteOptions): void {
   gainNode.gain.value = 0
 
   source.connect(gainNode)
-  gainNode.connect(this.ctx.destination)
+  gainNode.connect(this.masterGain)
 
   scheduleGainEnvelope(gainNode, startTime, durationSeconds, gainValue)
 
@@ -81,7 +98,6 @@ export function playSample(this: MML, options: PlayNoteOptions): void {
     source.disconnect()
     gainNode.disconnect()
   }, { once: true })
-
   source.start(startTime)
   source.stop(stopTime)
 }
@@ -152,11 +168,11 @@ function resolveBuffer(buffers: Record<number, AudioBuffer>, targetFrequency: nu
  * @param duration 재생 시간(ms)
  * @param volume 입력 볼륨(0~1)
  */
-function playSineWave(contextOwner: MML, frequency: number, duration: number, volume: number): void {
+function playSineWave(contextOwner: MML, frequency: number, duration: number, volume: number, timing: PlaybackTiming): void {
   const oscillator = contextOwner.ctx.createOscillator()
   const gainNode = contextOwner.ctx.createGain()
   const gainValue = convertVolumeToGain(volume)
-  const startTime = contextOwner.ctx.currentTime
+  const startTime = timing.contextTime + timing.delay
   const durationSeconds = duration / 1000
   const stopTime = startTime + durationSeconds
 
@@ -165,7 +181,7 @@ function playSineWave(contextOwner: MML, frequency: number, duration: number, vo
   gainNode.gain.value = 0
 
   oscillator.connect(gainNode)
-  gainNode.connect(contextOwner.ctx.destination)
+  gainNode.connect(contextOwner.masterGain)
 
   scheduleGainEnvelope(gainNode, startTime, durationSeconds, gainValue)
 
