@@ -2,7 +2,7 @@ import type { MML } from './index.ts'
 
 const MASTER_FADE_DURATION_SECONDS = 0.01
 
-export function stop(this: MML): void {
+export function stopMml(this: MML): void {
   const now = this.ctx.currentTime
   const fadeEnd = now + MASTER_FADE_DURATION_SECONDS
   const activeNodes = Array.from(this.activeNodes)
@@ -19,7 +19,7 @@ export function stop(this: MML): void {
     try {
       node.source.stop(fadeEnd)
     } catch {
-      // stop 호출이 실패해도 강제로 dispose 하여 리소스를 해제한다.
+      // stopMml 호출이 실패해도 강제로 dispose 하여 리소스를 해제한다.
     }
     const cleanupDelay = MASTER_FADE_DURATION_SECONDS * 1000
     globalThis.setTimeout(() => {

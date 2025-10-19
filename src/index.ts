@@ -1,16 +1,10 @@
-import {
-  AudioBufferStore,
-  AudioFilePath,
-  InstrumentName,
-  PlayNoteOptions,
-  PlaybackTiming,
-  TrackedPlaybackNode,
-} from './types'
+import { AudioBufferStore, AudioFilePath, InstrumentName, PlaybackTiming, PlayNoteOptions, TrackedPlaybackNode } from './types'
 import { loadSamples } from './load-samples'
 import { playSample } from './play-sample'
 import { mmlToNote } from './composables/mms-to-note'
-import { stop } from './stop'
+import { stopMml } from './stop-mml'
 import { stopped } from './stopped'
+import { playMml } from './play-mml'
 
 export class MML {
   public ctx: AudioContext
@@ -25,6 +19,10 @@ export class MML {
     this.masterGain.connect(this.ctx.destination)
   }
 
+  get stopped() {
+    return stopped.call(this)
+  }
+
   /**
    * 오디오 샘플을 로드하여 악기별/주파수별 버퍼에 적재한다.
    *
@@ -32,8 +30,11 @@ export class MML {
    * @returns {Promise<boolean | boolean[]>} 단일 입력 시 boolean, 배열 입력 시 boolean[] 결과
    */
   async loadSamples(source: AudioFilePath): Promise<boolean>
+
   async loadSamples(source: AudioFilePath[]): Promise<boolean[]>
+
   async loadSamples(source: AudioFilePath | AudioFilePath[]): Promise<boolean | boolean[]>
+
   async loadSamples(source: AudioFilePath | AudioFilePath[]): Promise<boolean | boolean[]> {
     return await loadSamples.call(this, source)
   }
@@ -53,15 +54,13 @@ export class MML {
     playSample.call(this, options, resolvedTiming)
   }
 
-  play(mml: string, name: InstrumentName = '_') {
+  play(mml: string, name: InstrumentName = '_'): void {
     const notes = mmlToNote(mml, name)
+
+    playMml.call(this, notes)
   }
 
   stop() {
-    stop.call(this)
-  }
-
-  get stopped() {
-    return stopped.call(this)
+    stopMml.call(this)
   }
 }
