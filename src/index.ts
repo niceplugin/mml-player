@@ -12,6 +12,10 @@ export class MML {
   public masterGain: GainNode
   public readonly activeNodes: Set<TrackedPlaybackNode> = new Set()
 
+  /**
+   * MML 플레이어 인스턴스를 초기화한다.
+   * AudioContext와 기본 마스터 게인을 구성한다.
+   */
   constructor() {
     this.ctx = new AudioContext()
     this.masterGain = this.ctx.createGain()
@@ -19,6 +23,11 @@ export class MML {
     this.masterGain.connect(this.ctx.destination)
   }
 
+  /**
+   * 현재 MML을 재생 중인지 여부를 반환한다.
+   *
+   * @returns {boolean} 재생 중인 노드가 없으면 true
+   */
   get stopped() {
     return stopped.call(this)
   }
@@ -54,12 +63,21 @@ export class MML {
     playSample.call(this, options, resolvedTiming)
   }
 
+  /**
+   * MML 문자열을 오디오로 재생한다.
+   *
+   * @param {string} mml 재생할 MML 문자열
+   * @param {InstrumentName} [name] 사용할 악기 이름
+   */
   play(mml: string, name: InstrumentName = '_'): void {
     const notes = mmlToNote(mml, name)
 
     playMml.call(this, notes)
   }
 
+  /**
+   * 재생중인 MML 오디오를 중지한다.
+   */
   stop() {
     stopMml.call(this)
   }
