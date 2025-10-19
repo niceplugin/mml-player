@@ -1,7 +1,7 @@
 {
   "name": "mml-player",
   "version": "0.0.1",
-  "description": "",
+  "description": "Web Audio player that parses \"music make language\" strings into playable notes.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -10,8 +10,13 @@
     "prepare": "npm run build",
     "test": "echo \"No tests defined\""
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "music make language",
+    "mml",
+    "web audio",
+    "audio synthesis"
+  ],
+  "author": "niceplugin@gmail.com",
   "license": "MIT",
   "type": "module",
   "files": [
