@@ -1,5 +1,5 @@
 import type { MML } from './index.ts'
-import type { PlayNoteOptions, PlaybackTiming } from './types.ts'
+import type { PlayNoteOptions, PlaybackTiming, TrackedPlaybackNode } from './types.ts'
 import { noteToFrequency } from './composables/note-to-frequency'
 
 const DEFAULT_FADE_DURATION = 0.01
@@ -12,7 +12,7 @@ export function playSample(this: MML, options: PlayNoteOptions, timing: Playback
     name,
     note,
     duration = 1000,
-    volume = 0.5,
+    volume = 0.8,
   } = options
   const { contextTime, delay } = timing
 
@@ -94,10 +94,8 @@ export function playSample(this: MML, options: PlayNoteOptions, timing: Playback
 
   scheduleGainEnvelope(gainNode, startTime, durationSeconds, gainValue)
 
-  source.addEventListener('ended', () => {
-    source.disconnect()
-    gainNode.disconnect()
-  }, { once: true })
+  registerPlaybackNode(this, source, gainNode)
+
   source.start(startTime)
   source.stop(stopTime)
 }
@@ -185,10 +183,7 @@ function playSineWave(contextOwner: MML, frequency: number, duration: number, vo
 
   scheduleGainEnvelope(gainNode, startTime, durationSeconds, gainValue)
 
-  oscillator.addEventListener('ended', () => {
-    oscillator.disconnect()
-    gainNode.disconnect()
-  }, { once: true })
+  registerPlaybackNode(contextOwner, oscillator, gainNode)
 
   oscillator.start(startTime)
   oscillator.stop(stopTime)
@@ -217,7 +212,7 @@ function convertVolumeToGain(volume: number): number {
  */
 function scheduleGainEnvelope(gainNode: GainNode, startTime: number, durationSeconds: number, targetGain: number): void {
   const gainParam = gainNode.gain
-  const fadeDuration = Math.min(DEFAULT_FADE_DURATION, durationSeconds / 2)
+  const fadeDuration = DEFAULT_FADE_DURATION
   const stopTime = startTime + durationSeconds
   const fadeOutStart = Math.max(startTime, stopTime - fadeDuration)
 
@@ -239,4 +234,48 @@ function scheduleGainEnvelope(gainNode: GainNode, startTime: number, durationSec
   } else {
     gainParam.setValueAtTime(0, stopTime)
   }
+}
+
+function registerPlaybackNode(owner: MML, source: AudioScheduledSourceNode, gainNode: GainNode): void {
+  let disposed = false
+
+  const trackedNode: TrackedPlaybackNode = {
+    source,
+    gainNode,
+    dispose: () => {
+      if (disposed) {
+        return
+      }
+      disposed = true
+
+      source.removeEventListener('ended', handleEnded)
+
+      try {
+        source.stop()
+      } catch {
+        // 이미 정지된 노드일 수 있다.
+      }
+
+      try {
+        source.disconnect()
+      } catch {
+        // 이미 해제된 노드일 수 있다.
+      }
+
+      try {
+        gainNode.disconnect()
+      } catch {
+        // 이미 해제된 노드일 수 있다.
+      }
+
+      owner.activeNodes.delete(trackedNode)
+    },
+  }
+
+  function handleEnded(): void {
+    trackedNode.dispose()
+  }
+
+  owner.activeNodes.add(trackedNode)
+  source.addEventListener('ended', handleEnded, { once: true })
 }

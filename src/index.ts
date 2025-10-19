@@ -1,12 +1,21 @@
-import { AudioBufferStore, AudioFilePath, InstrumentName, PlayNoteOptions, PlaybackTiming } from './types'
+import {
+  AudioBufferStore,
+  AudioFilePath,
+  InstrumentName,
+  PlayNoteOptions,
+  PlaybackTiming,
+  TrackedPlaybackNode,
+} from './types'
 import { loadSamples } from './load-samples'
 import { playSample } from './play-sample'
 import { mmlToNote } from './composables/mms-to-note'
+import { stop } from './stop'
 
 export class MML {
   public ctx: AudioContext
   public readonly buffers: AudioBufferStore = {}
-  public readonly masterGain: GainNode
+  public masterGain: GainNode
+  public readonly activeNodes: Set<TrackedPlaybackNode> = new Set()
 
   constructor() {
     this.ctx = new AudioContext()
@@ -45,5 +54,9 @@ export class MML {
 
   play(mml: string, name: InstrumentName = '_') {
     const notes = mmlToNote(mml, name)
+  }
+
+  stop() {
+    stop.call(this)
   }
 }

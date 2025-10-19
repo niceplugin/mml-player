@@ -19,3 +19,9 @@ export type PlaybackTiming = {
   contextTime: number
   delay: number
 }
+
+export type TrackedPlaybackNode = {
+  source: AudioScheduledSourceNode
+  gainNode: GainNode
+  dispose: () => void
+}
