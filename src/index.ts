@@ -5,6 +5,7 @@ import { mmlToNote } from './composables/mms-to-note'
 import { stopMml } from './stop-mml'
 import { stopped } from './stopped'
 import { playMml } from './play-mml'
+import { mmlToWavUrl } from './mml-to-wav-url'
 
 export class MML {
   public ctx: AudioContext
@@ -80,5 +81,17 @@ export class MML {
    */
   stop() {
     stopMml.call(this)
+  }
+
+  /**
+   * mml 문자열을 즉시 재생 또는 다운로드 가능한 wav 오디오 파일 url을 생성한다
+   *
+   * @param {string} mml 재생할 MML 문자열
+   * @param {InstrumentName} [name] 사용할 악기 이름
+   */
+  async mmlToWavUrl(mml: string, name: InstrumentName = '_'): Promise<string> {
+    const tracks = mmlToNote(mml, name)
+
+    return mmlToWavUrl.call(this, tracks)
   }
 }

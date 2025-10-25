@@ -1,4 +1,4 @@
-import { InstrumentName, PlayNoteOptions, PlayNoteTrack } from '../types'
+import { InstrumentName, PlayNoteTrack } from '../types'
 
 const MML_PREFIX = 'MML@'
 const MML_SUFFIX = ';'
@@ -83,28 +83,40 @@ function parseLine(line: string, name: InstrumentName): PlayNoteTrack {
     }
 
     if (token === 'T') {
-      const { value, nextIndex } = readNumber(line, cursor + 1)
+      const {
+        value,
+        nextIndex,
+      } = readNumber(line, cursor + 1)
       tempo = clampNumber(value ?? DEFAULT_TEMPO, MIN_TEMPO, MAX_TEMPO)
       cursor = nextIndex
       continue
     }
 
     if (token === 'O') {
-      const { value, nextIndex } = readNumber(line, cursor + 1)
+      const {
+        value,
+        nextIndex,
+      } = readNumber(line, cursor + 1)
       octave = clampNumber(value ?? DEFAULT_OCTAVE, MIN_OCTAVE, MAX_OCTAVE)
       cursor = nextIndex
       continue
     }
 
     if (token === 'V') {
-      const { value, nextIndex } = readNumber(line, cursor + 1)
+      const {
+        value,
+        nextIndex,
+      } = readNumber(line, cursor + 1)
       volume = clampNumber(value ?? DEFAULT_VOLUME, MIN_VOLUME, MAX_VOLUME)
       cursor = nextIndex
       continue
     }
 
     if (token === 'L') {
-      const { value, nextIndex } = readNumber(line, cursor + 1)
+      const {
+        value,
+        nextIndex,
+      } = readNumber(line, cursor + 1)
       defaultLength = clampNumber(value ?? DEFAULT_LENGTH, MIN_LENGTH, MAX_LENGTH)
       cursor = nextIndex
       continue
@@ -159,16 +171,12 @@ function parseLine(line: string, name: InstrumentName): PlayNoteTrack {
  * @param context 기본 설정 컨텍스트
  * @returns 파싱된 음표 옵션과 다음 읽기 위치
  */
-function parseNote(
-  source: string,
-  startIndex: number,
-  context: {
-    octave: number
-    defaultLength: number
-    tempo: number
-    volume: number
-  },
-): {
+function parseNote(source: string, startIndex: number, context: {
+  octave: number
+  defaultLength: number
+  tempo: number
+  volume: number
+}): {
   note: string | null
   duration: number
   volume: number
@@ -193,8 +201,7 @@ function parseNote(
     const duration = computeDuration(tempo, lengthValue, dotted.isDotted)
 
     return {
-      note: 'REST',
-      // 쉼표도 타이밍 유지를 위해 duration을 반환한다.
+      note: 'REST', // 쉼표도 타이밍 유지를 위해 duration을 반환한다.
       duration,
       volume: convertVolume(volume),
       nextIndex: cursor,
@@ -275,7 +282,10 @@ function readNumber(source: string, startIndex: number): { value: number | null;
  * @returns 길이 값과 다음 인덱스
  */
 function readLength(source: string, startIndex: number): { length: number | null; nextIndex: number } {
-  const { value, nextIndex } = readNumber(source, startIndex)
+  const {
+    value,
+    nextIndex,
+  } = readNumber(source, startIndex)
 
   if (value === null) {
     return {
