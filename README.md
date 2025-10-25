@@ -1,5 +1,7 @@
 # mml-player
 
+[korean docs(한국어)](./README.ko.md)
+
 TypeScript library for interpreting “music make language” (MML) strings and scheduling them with the Web Audio API. The player prefers decoded audio samples and falls back to a synthesized sine wave whenever nothing else is available.
 
 ## Features
