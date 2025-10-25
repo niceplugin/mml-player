@@ -1,8 +1,7 @@
 import type { MML } from './index.ts'
-import type { PlayNoteOptions, PlaybackTiming, TrackedPlaybackNode } from './types.ts'
+import type { PlaybackTiming, PlayNoteOptions, TrackedPlaybackNode } from './types.ts'
 import { noteToFrequency } from './composables/note-to-frequency'
-
-const DEFAULT_FADE_DURATION = 0.01
+import { resolveBuffer, scheduleGainEnvelope } from './composables/audio-utils'
 
 /**
  * 로드된 샘플을 재생하거나 사인파로 폴백해 재생한다.
@@ -18,7 +17,10 @@ export function playSample(this: MML, options: PlayNoteOptions, timing: Playback
     duration = 1000,
     volume = 0.8,
   } = options
-  const { contextTime, delay } = timing
+  const {
+    contextTime,
+    delay,
+  } = timing
 
   // duration이 유한한 숫자인지 확인한다.
   if (!Number.isFinite(duration)) {
@@ -87,7 +89,6 @@ export function playSample(this: MML, options: PlayNoteOptions, timing: Playback
   } = resolvedBuffer
   const source = this.ctx.createBufferSource()
   const gainNode = this.ctx.createGain()
-  const gainValue = convertVolumeToGain(volume)
   const startTime = contextTime + delay
   const durationSeconds = duration / 1000
   const stopTime = startTime + durationSeconds
@@ -105,77 +106,12 @@ export function playSample(this: MML, options: PlayNoteOptions, timing: Playback
   source.connect(gainNode)
   gainNode.connect(this.masterGain)
 
-  scheduleGainEnvelope(gainNode, startTime, durationSeconds, gainValue)
+  scheduleGainEnvelope(gainNode.gain, startTime, durationSeconds, volume)
 
   registerPlaybackNode(this, source, gainNode)
 
   source.start(startTime)
   source.stop(stopTime)
-}
-
-/**
- * 준비된 버퍼 집합에서 목표 주파수와 가장 가까운 버퍼를 골라 재생 속도를 계산한다.
- *
- * @param buffers 주파수-버퍼 매핑
- * @param targetFrequency 재생하고자 하는 목표 주파수
- * @returns {{ buffer: AudioBuffer; playbackRate: number } | null} 선택된 버퍼와 재생 속도 또는 null
- */
-function resolveBuffer(buffers: Record<number, AudioBuffer>, targetFrequency: number): {
-  buffer: AudioBuffer;
-  playbackRate: number
-} | null {
-  const exactBuffer = buffers[targetFrequency]
-
-  // 동일한 주파수의 버퍼가 있는지 확인한다.
-  if (exactBuffer) {
-    return {
-      buffer: exactBuffer,
-      playbackRate: 1,
-    }
-  }
-
-  const availableFrequencies = Object.keys(buffers)
-    .map((frequencyText) => Number.parseFloat(frequencyText))
-    .filter((frequencyValue) => Number.isFinite(frequencyValue))
-
-  // 사용 가능한 주파수가 없다면 폴백할 수 없다.
-  if (availableFrequencies.length === 0) {
-    return null
-  }
-
-  let nearestFrequency = availableFrequencies[0]
-  let smallestDiff = Math.abs(nearestFrequency - targetFrequency)
-
-  // 더 가까운 주파수를 탐색한다.
-  for (let index = 1; index < availableFrequencies.length; index += 1) {
-    const candidate = availableFrequencies[index]
-    const diff = Math.abs(candidate - targetFrequency)
-
-    // 차이가 더 작으면 후보를 갱신한다.
-    if (diff < smallestDiff) {
-      nearestFrequency = candidate
-      smallestDiff = diff
-    }
-  }
-
-  const buffer = buffers[nearestFrequency]
-  // 버퍼가 실제로 존재하는지 확인한다.
-  if (!buffer) {
-    return null
-  }
-
-  const playbackRate = targetFrequency / nearestFrequency
-
-  // 재생 속도가 유효한지 검증한다.
-  if (!Number.isFinite(playbackRate) || playbackRate <= 0) {
-    return null
-  }
-
-  // 가장 가까운 샘플 버퍼를 찾아 재생 속도로 보정한다.
-  return {
-    buffer,
-    playbackRate,
-  }
 }
 
 /**
@@ -191,7 +127,6 @@ function resolveBuffer(buffers: Record<number, AudioBuffer>, targetFrequency: nu
 function playSineWave(contextOwner: MML, frequency: number, duration: number, volume: number, timing: PlaybackTiming): void {
   const oscillator = contextOwner.ctx.createOscillator()
   const gainNode = contextOwner.ctx.createGain()
-  const gainValue = convertVolumeToGain(volume)
   const startTime = timing.contextTime + timing.delay
   const durationSeconds = duration / 1000
   const stopTime = startTime + durationSeconds
@@ -203,69 +138,12 @@ function playSineWave(contextOwner: MML, frequency: number, duration: number, vo
   oscillator.connect(gainNode)
   gainNode.connect(contextOwner.masterGain)
 
-  scheduleGainEnvelope(gainNode, startTime, durationSeconds, gainValue)
+  scheduleGainEnvelope(gainNode.gain, startTime, durationSeconds, volume)
 
   registerPlaybackNode(contextOwner, oscillator, gainNode)
 
   oscillator.start(startTime)
   oscillator.stop(stopTime)
-}
-
-/**
- * 선형 볼륨 값을 지각상 자연스러운 Gain 값으로 변환한다.
- *
- * @param volume 입력 볼륨(0~1)
- * @returns {number} Gain 노드에 설정할 값
- */
-function convertVolumeToGain(volume: number): number {
-  // 볼륨이 0이면 즉시 0을 반환한다.
-  if (volume === 0) {
-    return 0
-  }
-
-  const minDb = -60
-  const maxDb = 0
-  const dB = minDb + (maxDb - minDb) * volume
-
-  return Math.pow(10, dB / 20)
-}
-
-/**
- * 재생 시 클릭음을 줄이기 위한 간단한 페이드 인/아웃 엔벨로프를 설정한다.
- *
- * @param {GainNode} gainNode 엔벨로프를 적용할 게인 노드
- * @param {number} startTime 시작 시간(초)
- * @param {number} durationSeconds 지속 시간(초)
- * @param {number} targetGain 목표 게인 값
- * @returns {void} 반환값 없음
- */
-function scheduleGainEnvelope(gainNode: GainNode, startTime: number, durationSeconds: number, targetGain: number): void {
-  const gainParam = gainNode.gain
-  const fadeDuration = DEFAULT_FADE_DURATION
-  const stopTime = startTime + durationSeconds
-  const fadeOutStart = Math.max(startTime, stopTime - fadeDuration)
-
-  gainParam.cancelScheduledValues(startTime)
-  gainParam.setValueAtTime(0, startTime)
-
-  // 페이드 인 구간을 설정한다.
-  if (fadeDuration > 0) {
-    gainParam.linearRampToValueAtTime(targetGain, startTime + fadeDuration)
-  } else {
-    gainParam.setValueAtTime(targetGain, startTime)
-  }
-
-  // 페이드 아웃 시작 시점을 유지하기 위해 현재 값을 다시 설정한다.
-  if (fadeOutStart > startTime + fadeDuration) {
-    gainParam.setValueAtTime(targetGain, fadeOutStart)
-  }
-
-  // 페이드 아웃 구간을 설정한다.
-  if (fadeDuration > 0) {
-    gainParam.linearRampToValueAtTime(0, stopTime)
-  } else {
-    gainParam.setValueAtTime(0, stopTime)
-  }
 }
 
 /**
@@ -298,19 +176,22 @@ function registerPlaybackNode(owner: MML, source: AudioScheduledSourceNode, gain
 
       try {
         source.stop()
-      } catch {
+      }
+      catch {
         // 이미 정지된 노드일 수 있다.
       }
 
       try {
         source.disconnect()
-      } catch {
+      }
+      catch {
         // 이미 해제된 노드일 수 있다.
       }
 
       try {
         gainNode.disconnect()
-      } catch {
+      }
+      catch {
         // 이미 해제된 노드일 수 있다.
       }
 

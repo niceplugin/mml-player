@@ -1,8 +1,8 @@
 import { MML } from './index'
 import { noteToFrequency } from './composables/note-to-frequency'
 import { PlayNoteTrack } from './types'
+import { DEFAULT_FADE_DURATION, resolveBuffer, scheduleGainEnvelope } from './composables/audio-utils'
 
-const DEFAULT_FADE_DURATION = 0.01
 const DEFAULT_VOLUME = 0.8
 const RENDER_PADDING_SECONDS = 0.05
 
@@ -169,8 +169,7 @@ function scheduleTrack(config: {
     // 쉼표가 아니고 이름이 존재하면 샘플 재생을 준비한다.
     if (!isRest && typeof noteName === 'string' && noteName.length > 0) {
       const startTime = accumulatedDelaySeconds
-      const resolvedVolume = resolveVolume(volume)
-      const gainValue = convertVolumeToGain(resolvedVolume)
+      const gainValue = resolveVolume(volume)
       const instrumentKey = typeof name === 'string' ? name.trim().toLowerCase() : '_'
       const instrumentBuffers = owner.buffers[instrumentKey]
       const targetFrequency = noteToFrequency(noteName)
@@ -194,11 +193,13 @@ function scheduleTrack(config: {
           scheduleGainEnvelope(gainNode.gain, startTime, durationSeconds, gainValue)
           bufferSource.start(startTime)
           bufferSource.stop(startTime + durationSeconds)
-        } else {
+        }
+        else {
           // 매칭되는 버퍼가 없으면 사인파로 대체한다.
           scheduleSineWave(context, masterGain, startTime, durationSeconds, targetFrequency, gainValue)
         }
-      } else {
+      }
+      else {
         // 버퍼가 전혀 없으면 사인파로 대체한다.
         scheduleSineWave(context, masterGain, startTime, durationSeconds, targetFrequency, gainValue)
       }
@@ -242,14 +243,7 @@ function resolveVolume(volume: number | undefined): number {
  * @param {number} gainValue 설정할 게인 값
  * @returns {void}
  */
-function scheduleSineWave(
-  context: OfflineAudioContext,
-  masterGain: GainNode,
-  startTime: number,
-  durationSeconds: number,
-  frequency: number,
-  gainValue: number,
-): void {
+function scheduleSineWave(context: OfflineAudioContext, masterGain: GainNode, startTime: number, durationSeconds: number, frequency: number, gainValue: number): void {
   const oscillator = context.createOscillator()
   const gainNode = context.createGain()
 
@@ -266,126 +260,6 @@ function scheduleSineWave(
 }
 
 /**
- * 0~1 선형 볼륨 값을 dB 변환 후 지수 형태의 게인으로 변환한다.
- *
- * @param {number} volume 입력 볼륨
- * @returns {number} GainNode에 적용할 값
- */
-function convertVolumeToGain(volume: number): number {
-  // 0 볼륨은 0 게인으로 즉시 반환한다.
-  if (volume === 0) {
-    return 0
-  }
-
-  const minDb = -60
-  const maxDb = 0
-  const dB = minDb + (maxDb - minDb) * volume
-
-  return Math.pow(10, dB / 20)
-}
-
-/**
- * 게인 파라미터에 페이드 인/아웃 엔벨로프를 적용한다.
- *
- * @param {AudioParam} param GainNode의 게인 파라미터
- * @param {number} startTime 시작 시간(초)
- * @param {number} durationSeconds 재생 길이(초)
- * @param {number} targetGain 목표 게인 값
- * @returns {void}
- */
-function scheduleGainEnvelope(param: AudioParam, startTime: number, durationSeconds: number, targetGain: number): void {
-  const fadeDuration = DEFAULT_FADE_DURATION
-  const stopTime = startTime + durationSeconds
-  const fadeOutStart = Math.max(startTime, stopTime - fadeDuration)
-
-  param.cancelScheduledValues(startTime)
-  param.setValueAtTime(0, startTime)
-
-  // 페이드 인 구간에 따라 선형 램프 또는 즉시 값을 적용한다.
-  if (fadeDuration > 0) {
-    param.linearRampToValueAtTime(targetGain, startTime + fadeDuration)
-  } else {
-    param.setValueAtTime(targetGain, startTime)
-  }
-
-  // 페이드 아웃 시작 지점을 보정한다.
-  if (fadeOutStart > startTime + fadeDuration) {
-    param.setValueAtTime(targetGain, fadeOutStart)
-  }
-
-  // 페이드 아웃 구간에 따라 선형 램프 또는 즉시 0으로 설정한다.
-  if (fadeDuration > 0) {
-    param.linearRampToValueAtTime(0, stopTime)
-  } else {
-    param.setValueAtTime(0, stopTime)
-  }
-}
-
-/**
- * 주어진 버퍼 집합에서 목표 주파수와 가장 가까운 버퍼를 찾는다.
- *
- * @param {Record<number, AudioBuffer>} buffers 버퍼 맵
- * @param {number} targetFrequency 원하는 주파수
- * @returns {{ buffer: AudioBuffer; playbackRate: number } | null} 선택된 버퍼와 재생 속도 또는 null
- */
-function resolveBuffer(buffers: Record<number, AudioBuffer>, targetFrequency: number): {
-  buffer: AudioBuffer
-  playbackRate: number
-} | null {
-  const exactBuffer = buffers[targetFrequency]
-
-  // 동일 주파수 버퍼가 있으면 그대로 반환한다.
-  if (exactBuffer) {
-    return {
-      buffer: exactBuffer,
-      playbackRate: 1,
-    }
-  }
-
-  const availableFrequencies = Object.keys(buffers)
-    .map((frequencyText) => Number.parseFloat(frequencyText))
-    .filter((frequencyValue) => Number.isFinite(frequencyValue))
-
-  // 사용 가능한 주파수가 없으면 폴백할 수 없다.
-  if (availableFrequencies.length === 0) {
-    return null
-  }
-
-  let nearestFrequency = availableFrequencies[0]
-  let smallestDiff = Math.abs(nearestFrequency - targetFrequency)
-
-  // 더 가까운 주파수를 탐색한다.
-  for (let index = 1; index < availableFrequencies.length; index += 1) {
-    const candidate = availableFrequencies[index]
-    const diff = Math.abs(candidate - targetFrequency)
-
-    // 차이가 더 작으면 후보를 갱신한다.
-    if (diff < smallestDiff) {
-      nearestFrequency = candidate
-      smallestDiff = diff
-    }
-  }
-
-  const buffer = buffers[nearestFrequency]
-  // 인접 버퍼가 존재하는지 확인한다.
-  if (!buffer) {
-    return null
-  }
-
-  const playbackRate = targetFrequency / nearestFrequency
-
-  // 재생 속도가 유효한지 검사한다.
-  if (!Number.isFinite(playbackRate) || playbackRate <= 0) {
-    return null
-  }
-
-  return {
-    buffer,
-    playbackRate,
-  }
-}
-
-/**
  * AudioBuffer를 WAV 형식의 Blob URL로 변환한다.
  *
  * @param {AudioBuffer} buffer 렌더링 결과 버퍼
@@ -398,7 +272,7 @@ function audioBufferToObjectUrl(buffer: AudioBuffer): string {
   }
 
   const arrayBuffer = encodeWav(buffer)
-  const blob = new Blob([arrayBuffer], { type: 'audio/wav' })
+  const blob = new Blob([ arrayBuffer ], { type: 'audio/wav' })
 
   return URL.createObjectURL(blob)
 }
