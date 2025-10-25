@@ -29,7 +29,7 @@ export class MML {
    *
    * @returns {boolean} 재생 중인 노드가 없으면 true
    */
-  get stopped() {
+  get stopped(): boolean {
     return stopped.call(this)
   }
 
@@ -54,6 +54,7 @@ export class MML {
    *
    * @param {PlayNoteOptions} options 재생 옵션
    * @param {PlaybackTiming} [timing] 캡처한 컨텍스트 시간(contextTime)과 재생 지연(delay), 생략 시 현재 컨텍스트 시간과 지연 0 사용
+   * @returns {void} 반환값 없음
    */
   playSample(options: PlayNoteOptions, timing?: PlaybackTiming): void {
     const resolvedTiming: PlaybackTiming = timing ?? {
@@ -69,6 +70,7 @@ export class MML {
    *
    * @param {string} mml 재생할 MML 문자열
    * @param {InstrumentName} [name] 사용할 악기 이름
+   * @returns {void} 반환값 없음
    */
   play(mml: string, name: InstrumentName = '_'): void {
     const tracks = mmlToNote(mml, name)
@@ -78,8 +80,10 @@ export class MML {
 
   /**
    * 재생중인 MML 오디오를 중지한다.
+   *
+   * @returns {void} 반환값 없음
    */
-  stop() {
+  stop(): void {
     stopMml.call(this)
   }
 
@@ -88,6 +92,7 @@ export class MML {
    *
    * @param {string} mml 재생할 MML 문자열
    * @param {InstrumentName} [name] 사용할 악기 이름
+   * @returns {Promise<string>} 생성된 WAV Object URL
    */
   async mmlToWavUrl(mml: string, name: InstrumentName = '_'): Promise<string> {
     const tracks = mmlToNote(mml, name)

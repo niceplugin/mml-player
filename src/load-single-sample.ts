@@ -16,6 +16,7 @@ export async function loadSingleSample(this: MML, file: AudioFilePath): Promise<
     const frequency = noteToFrequency(file.note)
     const audioBuffer = await fetchAudioBuffer.call(this, file.path)
 
+    // 아직 버퍼 맵이 없다면 악기 키를 초기화한다.
     if (!this.buffers[instrumentKey]) {
       this.buffers[instrumentKey] = {}
     }

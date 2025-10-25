@@ -10,6 +10,7 @@ export function noteToFrequency(note: string): number {
   const normalized = note.trim().toLowerCase()
   const match = normalized.match(/^([a-g])([#b]?)(\d+)$/)
 
+  // 음계 포맷이 올바른지 확인한다.
   if (!match) {
     throw new Error(`지원하지 않는 음정 포맷입니다: ${ note }`)
   }
@@ -26,19 +27,23 @@ export function noteToFrequency(note: string): number {
   }
 
   const octave = Number.parseInt(octaveText, 10)
+  // 옥타브 정보가 숫자인지 확인한다.
   if (Number.isNaN(octave)) {
     throw new Error(`옥타브 정보를 파싱할 수 없습니다: ${ note }`)
   }
 
   let semitoneOffset = semitoneMap[letter]
 
+  // 음계가 유효한지 확인한다.
   if (semitoneOffset === undefined) {
     throw new Error(`알 수 없는 음계입니다: ${ note }`)
   }
 
+  // 반음 상승 기호면 1을 더한다.
   if (accidental === '#') {
     semitoneOffset += 1
   }
+  // 반음 하강 기호면 1을 뺀다.
   else if (accidental === 'b') {
     semitoneOffset -= 1
   }

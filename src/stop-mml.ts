@@ -2,11 +2,17 @@ import type { MML } from './index.ts'
 
 const MASTER_FADE_DURATION_SECONDS = 0.01
 
+/**
+ * 재생 중인 모든 노드를 부드럽게 페이드 아웃하고 AudioContext 연결을 재설정한다.
+ *
+ * @returns {void} 반환값 없음
+ */
 export function stopMml(this: MML): void {
   const now = this.ctx.currentTime
   const fadeEnd = now + MASTER_FADE_DURATION_SECONDS
   const activeNodes = Array.from(this.activeNodes)
 
+  // 현재 활성 노드를 순회하며 정리한다.
   for (const node of activeNodes) {
     try {
       node.gainNode.gain.cancelScheduledValues(now)

@@ -10,6 +10,7 @@ import type { MML } from './index.ts'
 export async function fetchAudioBuffer(this: MML, path: string): Promise<AudioBuffer> {
   const response = await fetch(path)
 
+  // 응답이 실패했는지 확인해 재생 가능한 버퍼만 반환한다.
   if (!response.ok) {
     throw new Error(`오디오 파일을 가져오지 못했습니다: ${ path }`)
   }
