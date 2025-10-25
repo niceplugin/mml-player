@@ -1,6 +1,6 @@
 {
   "name": "mml-player",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Web Audio player that parses \"music make language\" strings into playable notes.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

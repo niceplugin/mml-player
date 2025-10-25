@@ -1,4 +1,4 @@
-import { InstrumentName, PlayNoteOptions, PlayNoteTrack } from '../types'
+import { InstrumentName, PlayNoteTrack } from '../types'
 
 const MML_PREFIX = 'MML@'
 const MML_SUFFIX = ';'
@@ -18,28 +18,32 @@ const DEFAULT_LENGTH = 4
 /**
  * MML(Music Macro Language) 문자열을 파싱해 재생 가능한 옵션 목록으로 변환한다.
  *
- * @param mml MML 전체 문자열
- * @param name 파싱 결과에 적용할 악기 이름
- * @returns 파싱된 재생 옵션 목록
+ * @param {string} mml MML 전체 문자열
+ * @param {InstrumentName} name 파싱 결과에 적용할 악기 이름
+ * @returns {PlayNoteTrack[]} 파싱된 재생 옵션 목록
  * @throws {Error} 포맷이 올바르지 않은 경우
  */
 export function mmlToNote(mml: string, name: InstrumentName): PlayNoteTrack[] {
+  // 입력 값이 문자열인지 확인한다.
   if (typeof mml !== 'string') {
     throw new TypeError('contents는 문자열이어야 합니다.')
   }
 
   const trimmed = mml.trim()
 
+  // 공백만 포함된 경우 빈 배열을 반환한다.
   if (trimmed.length === 0) {
     return []
   }
 
   const upperCased = trimmed.toUpperCase()
 
+  // MML 접두사가 있는지 확인한다.
   if (!upperCased.startsWith(MML_PREFIX)) {
     throw new Error('MML 문자열은 "MML@"로 시작해야 합니다.')
   }
 
+  // MML 접미사가 있는지 확인한다.
   if (!upperCased.endsWith(MML_SUFFIX)) {
     throw new Error('MML 문자열은 ";"로 끝나야 합니다.')
   }
@@ -48,8 +52,10 @@ export function mmlToNote(mml: string, name: InstrumentName): PlayNoteTrack[] {
   const staffs = body.split(',').map((line) => line.trim()).filter((line) => line.length > 0)
   const parsedNotes: PlayNoteTrack[] = []
 
+  // 각 오선지 라인을 순회하며 파싱한다.
   staffs.forEach((line) => {
     const notesForLine = parseLine(line, name)
+    // 결과가 비어 있지 않은 경우에만 추가한다.
     if (notesForLine.length > 0) {
       parsedNotes.push(notesForLine)
     }
@@ -61,9 +67,9 @@ export function mmlToNote(mml: string, name: InstrumentName): PlayNoteTrack[] {
 /**
  * 단일 오선지 라인을 파싱해 재생 가능한 음표 목록으로 변환한다.
  *
- * @param line 가공 대상 MML 라인
- * @param name 파싱 결과에 적용할 악기 이름
- * @returns 해당 라인의 음표 옵션 배열
+ * @param {string} line 가공 대상 MML 라인
+ * @param {InstrumentName} name 파싱 결과에 적용할 악기 이름
+ * @returns {PlayNoteTrack} 해당 라인의 음표 옵션 배열
  */
 function parseLine(line: string, name: InstrumentName): PlayNoteTrack {
   const results: PlayNoteTrack = []
@@ -73,55 +79,76 @@ function parseLine(line: string, name: InstrumentName): PlayNoteTrack {
   let defaultLength = DEFAULT_LENGTH
   let cursor = 0
 
+  // 모든 문자를 순회하며 토큰을 분석한다.
   while (cursor < line.length) {
     const token = line[cursor]
 
+    // 공백 문자면 건너뛴다.
     if (token === ' ' || token === '\t' || token === '\n') {
       // 공백은 무시하고 다음 문자로 진행한다.
       cursor += 1
       continue
     }
 
+    // 템포 설정 토큰인지 확인한다.
     if (token === 'T') {
-      const { value, nextIndex } = readNumber(line, cursor + 1)
+      const {
+        value,
+        nextIndex,
+      } = readNumber(line, cursor + 1)
       tempo = clampNumber(value ?? DEFAULT_TEMPO, MIN_TEMPO, MAX_TEMPO)
       cursor = nextIndex
       continue
     }
 
+    // 옥타브 설정 토큰인지 확인한다.
     if (token === 'O') {
-      const { value, nextIndex } = readNumber(line, cursor + 1)
+      const {
+        value,
+        nextIndex,
+      } = readNumber(line, cursor + 1)
       octave = clampNumber(value ?? DEFAULT_OCTAVE, MIN_OCTAVE, MAX_OCTAVE)
       cursor = nextIndex
       continue
     }
 
+    // 볼륨 설정 토큰인지 확인한다.
     if (token === 'V') {
-      const { value, nextIndex } = readNumber(line, cursor + 1)
+      const {
+        value,
+        nextIndex,
+      } = readNumber(line, cursor + 1)
       volume = clampNumber(value ?? DEFAULT_VOLUME, MIN_VOLUME, MAX_VOLUME)
       cursor = nextIndex
       continue
     }
 
+    // 기본 길이 설정 토큰인지 확인한다.
     if (token === 'L') {
-      const { value, nextIndex } = readNumber(line, cursor + 1)
+      const {
+        value,
+        nextIndex,
+      } = readNumber(line, cursor + 1)
       defaultLength = clampNumber(value ?? DEFAULT_LENGTH, MIN_LENGTH, MAX_LENGTH)
       cursor = nextIndex
       continue
     }
 
+    // 옥타브 상승 토큰인지 확인한다.
     if (token === '>') {
       octave = clampNumber(octave + 1, MIN_OCTAVE, MAX_OCTAVE)
       cursor += 1
       continue
     }
 
+    // 옥타브 하강 토큰인지 확인한다.
     if (token === '<') {
       octave = clampNumber(octave - 1, MIN_OCTAVE, MAX_OCTAVE)
       cursor += 1
       continue
     }
 
+    // 음표 토큰인지 확인한다.
     if (isNoteToken(token)) {
       // 음표/쉼표 토큰을 실제 재생 옵션으로 변환한다.
       const parsed = parseNote(line, cursor, {
@@ -132,6 +159,7 @@ function parseLine(line: string, name: InstrumentName): PlayNoteTrack {
       })
       cursor = parsed.nextIndex
 
+      // 파싱된 노트가 존재하면 결과에 추가한다.
       if (parsed.note) {
         results.push({
           name,
@@ -154,21 +182,17 @@ function parseLine(line: string, name: InstrumentName): PlayNoteTrack {
 /**
  * 개별 음표 또는 쉼표 토큰을 파싱한다.
  *
- * @param source 현재 라인 문자열
- * @param startIndex 토큰 시작 위치
- * @param context 기본 설정 컨텍스트
- * @returns 파싱된 음표 옵션과 다음 읽기 위치
+ * @param {string} source 현재 라인 문자열
+ * @param {number} startIndex 토큰 시작 위치
+ * @param {{ octave: number; defaultLength: number; tempo: number; volume: number }} context 기본 설정 컨텍스트
+ * @returns {{ note: string | null; duration: number; volume: number; nextIndex: number }} 파싱된 음표 옵션과 다음 읽기 위치
  */
-function parseNote(
-  source: string,
-  startIndex: number,
-  context: {
-    octave: number
-    defaultLength: number
-    tempo: number
-    volume: number
-  },
-): {
+function parseNote(source: string, startIndex: number, context: {
+  octave: number
+  defaultLength: number
+  tempo: number
+  volume: number
+}): {
   note: string | null
   duration: number
   volume: number
@@ -184,6 +208,7 @@ function parseNote(
   const letter = source[cursor]
   cursor += 1
 
+  // 쉼표 토큰인지 확인한다.
   if (letter === 'R') {
     const figure = readLength(source, cursor)
     cursor = figure.nextIndex
@@ -193,8 +218,7 @@ function parseNote(
     const duration = computeDuration(tempo, lengthValue, dotted.isDotted)
 
     return {
-      note: 'REST',
-      // 쉼표도 타이밍 유지를 위해 duration을 반환한다.
+      note: 'REST', // 쉼표도 타이밍 유지를 위해 duration을 반환한다.
       duration,
       volume: convertVolume(volume),
       nextIndex: cursor,
@@ -202,12 +226,15 @@ function parseNote(
   }
 
   let accidental = ''
+  // 임시표가 존재하는지 확인한다.
   if (cursor < source.length) {
     const sign = source[cursor]
+    // # 기호면 반음 상승으로 처리한다.
     if (sign === '+') {
       accidental = '#'
       cursor += 1
     }
+    // b 기호면 반음 하강으로 처리한다.
     else if (sign === '-') {
       accidental = 'B'
       cursor += 1
@@ -235,16 +262,18 @@ function parseNote(
 /**
  * 연속된 숫자 토큰을 읽어 정수로 반환한다.
  *
- * @param source 검색 대상 문자열
- * @param startIndex 숫자 시작 예상 위치
- * @returns 읽은 숫자와 다음 인덱스
+ * @param {string} source 검색 대상 문자열
+ * @param {number} startIndex 숫자 시작 예상 위치
+ * @returns {{ value: number | null; nextIndex: number }} 읽은 숫자와 다음 인덱스
  */
 function readNumber(source: string, startIndex: number): { value: number | null; nextIndex: number } {
   let cursor = startIndex
   let buffer = ''
 
+  // 숫자 문자만 모아서 버퍼에 저장한다.
   while (cursor < source.length) {
     const char = source[cursor]
+    // 숫자가 아닌 문자를 만나면 종료한다.
     if (char < '0' || char > '9') {
       break
     }
@@ -252,6 +281,7 @@ function readNumber(source: string, startIndex: number): { value: number | null;
     cursor += 1
   }
 
+  // 숫자가 없으면 null을 반환한다.
   if (buffer.length === 0) {
     return {
       value: null,
@@ -270,13 +300,17 @@ function readNumber(source: string, startIndex: number): { value: number | null;
 /**
  * 길이(L) 정보를 읽어 제한 범위 내 숫자로 반환한다.
  *
- * @param source 검색 대상 문자열
- * @param startIndex 길이 시작 위치
- * @returns 길이 값과 다음 인덱스
+ * @param {string} source 검색 대상 문자열
+ * @param {number} startIndex 길이 시작 위치
+ * @returns {{ length: number | null; nextIndex: number }} 길이 값과 다음 인덱스
  */
 function readLength(source: string, startIndex: number): { length: number | null; nextIndex: number } {
-  const { value, nextIndex } = readNumber(source, startIndex)
+  const {
+    value,
+    nextIndex,
+  } = readNumber(source, startIndex)
 
+  // 길이 정보가 없으면 null을 반환한다.
   if (value === null) {
     return {
       length: null,
@@ -293,11 +327,12 @@ function readLength(source: string, startIndex: number): { length: number | null
 /**
  * 점음표 여부를 판별한다.
  *
- * @param source 검색 대상 문자열
- * @param startIndex 점 위치
- * @returns 점음표 여부와 다음 인덱스
+ * @param {string} source 검색 대상 문자열
+ * @param {number} startIndex 점 위치
+ * @returns {{ isDotted: boolean; nextIndex: number }} 점음표 여부와 다음 인덱스
  */
 function readDot(source: string, startIndex: number): { isDotted: boolean; nextIndex: number } {
+  // 점이 존재하면 점음표로 처리한다.
   if (source[startIndex] === '.') {
     return {
       isDotted: true,
@@ -314,10 +349,10 @@ function readDot(source: string, startIndex: number): { isDotted: boolean; nextI
 /**
  * 템포와 길이를 기반으로 재생 시간을 ms 단위로 계산한다.
  *
- * @param tempo 박자(분당 박수)
- * @param length 음표 길이(L 값)
- * @param isDotted 점음표 여부
- * @returns 계산된 재생 시간(ms)
+ * @param {number} tempo 박자(분당 박수)
+ * @param {number} length 음표 길이(L 값)
+ * @param {boolean} isDotted 점음표 여부
+ * @returns {number} 계산된 재생 시간(ms)
  */
 function computeDuration(tempo: number, length: number, isDotted: boolean): number {
   const clampedTempo = clampNumber(tempo, MIN_TEMPO, MAX_TEMPO)
@@ -326,6 +361,7 @@ function computeDuration(tempo: number, length: number, isDotted: boolean): numb
   const noteBeats = 4 / clampedLength
   let duration = beatDurationMs * noteBeats
 
+  // 점음표면 길이를 1.5배로 보정한다.
   if (isDotted) {
     duration *= 1.5
   }
@@ -336,16 +372,18 @@ function computeDuration(tempo: number, length: number, isDotted: boolean): numb
 /**
  * 숫자를 지정된 범위 내로 클램프한다.
  *
- * @param value 원본 숫자
- * @param min 최소 허용값
- * @param max 최대 허용값
- * @returns 범위 내로 조정된 숫자
+ * @param {number} value 원본 숫자
+ * @param {number} min 최소 허용값
+ * @param {number} max 최대 허용값
+ * @returns {number} 범위 내로 조정된 숫자
  */
 function clampNumber(value: number, min: number, max: number): number {
+  // 최소값보다 작으면 최소값을 반환한다.
   if (value < min) {
     return min
   }
 
+  // 최대값보다 크면 최대값을 반환한다.
   if (value > max) {
     return max
   }
@@ -356,8 +394,8 @@ function clampNumber(value: number, min: number, max: number): number {
 /**
  * 입력 문자가 음표 혹은 쉼표 토큰인지 판별한다.
  *
- * @param char 판별 대상 문자
- * @returns 음표/쉼표 여부
+ * @param {string} char 판별 대상 문자
+ * @returns {boolean} 음표/쉼표 여부
  */
 function isNoteToken(char: string): boolean {
   return char >= 'A' && char <= 'G' || char === 'R'
@@ -366,11 +404,12 @@ function isNoteToken(char: string): boolean {
 /**
  * 0~15 볼륨을 0~1 범위로 변환한다.
  *
- * @param volume 원본 볼륨 값
- * @returns AudioContext용 볼륨 값
+ * @param {number} volume 원본 볼륨 값
+ * @returns {number} AudioContext용 볼륨 값
  */
 function convertVolume(volume: number): number {
   const clamped = clampNumber(volume, MIN_VOLUME, MAX_VOLUME)
+  // 최저 볼륨은 0으로 유지한다.
   if (clamped === 0) {
     return 0
   }
